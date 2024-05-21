@@ -1,3 +1,0 @@
-base:
-  url: https://sts.test.com
-  token_pwd: jwt_token_passwd
