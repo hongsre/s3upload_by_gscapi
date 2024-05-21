@@ -48,14 +48,25 @@ def set_s3_resource(access_key, secret_key, session_token):
 
 
 def gscapi_post(url, jwt_token_pwd):
-    sts_params = {
-        'token': jwt_token_pwd
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
     }
-    response = requests.post(url, params=sts_params)
-    if response['status']:
-        return response
+    sts_params = {
+        'token': f'{jwt_token_pwd}'
+    }
+    response = requests.post(url, headers=headers, data=sts_params)
+    try:
+        response_data = response.json()
+    except ValueError:
+        raise ValueError("응답을 JSON으로 파싱할 수 없습니다.")
+
+    if response.status_code == 200:
+        if 'status' in response_data and response_data['status']:
+            return response_data
+        else:
+            raise ValueError("API 호출 결과가 False입니다. 사용한 Token이 정상적인지 확인해주세요")
     else:
-        raise("API 호출 결과가 False입니다. 사용한 Token이 정상적인지 확인해주세요")
+        raise ValueError(f"API 호출 실패: 상태 코드 {response.status_code}, 응답: {response.text}")
 
 
 def upload_file_to_s3(s3, bucket, subdir, file, dst_dir, src_dir):
@@ -89,7 +100,7 @@ def list_files_in_bucket(s3_paths):
         print(s3_path)
 
 
-# def delete_folder(s3_resource, access_key, secret_key, role_arn, bucket, folder_prefix):
+# def delete_folder(s3_resource, bucket, folder_prefix):
 #     s3_bucket = s3_resource.Bucket(bucket)
 #     for obj in s3_bucket.objects.filter(Prefix=folder_prefix):
 #         s3_resource.Object(bucket, obj.key).delete()
@@ -128,7 +139,7 @@ if __name__ == "__main__":
     jwt_token_pwd = config['base']['token_pwd']
 
     # jwt decode 정보 얻어오기
-    infos = gscapi_post(jwt_token_pwd)
+    infos = gscapi_post(url, jwt_token_pwd)
     bucket = infos['bucket']
     arn = infos['arn']
     domain = infos['domain']
@@ -147,17 +158,15 @@ if __name__ == "__main__":
     list_files_in_bucket(s3_paths)
 
     # CDN 설정을 했다면 https 주소 출력
-    cdn_url = f"{domain}/{dst_dir}"
+    cdn_url = f"{domain}{dst_dir}"
 
     print(f"""
     CDN URL:
     {cdn_url}""" )
 
-    # 업로드 완료된 s3 
+    # # 업로드 완료된 s3 
     # s3_list_check(s3_client, arn, bucket)
 
-    # 폴더를 삭제하고 싶다면 아래 주석 해제
-    # folder_prefix = "remove_target_dir"
-    # delete_folder(s3_resource, arn, bucket, dst_dir)
-
-
+    # # 폴더를 삭제하고 싶다면 아래 주석 해제
+    # remove_dir = "data/tempfolder"
+    # delete_folder(s3_resource, bucket, remove_dir)
